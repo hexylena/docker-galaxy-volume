@@ -1,0 +1,4 @@
+bioblend==0.11.0
+cachetools==2.1.0
+Flask==1.0.2
+fusepy==2.0.4
