@@ -148,7 +148,7 @@ def volume_get(volume=None):
 def volume_list():
     return jsonify({
         'Volumes': [
-            {'Name': k, 'Mountpoint': v['mountpoint']}
+            {'Name': k, 'Mountpoint': v.get('mountpoint', '')}
             for k, v
             in VOLUMES.items()
         ],
