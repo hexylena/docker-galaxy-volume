@@ -33,8 +33,9 @@ DIR_CACHE_ENTS = 64
 
 DIRMODE = 0o555
 FILEMODE = 0o444
-USE_FILENAME = False
+USE_FILENAME = True
 NOW = time.time()
+SEPARATOR = '__'
 
 
 def escape(path):
@@ -59,28 +60,43 @@ def path_type(path):
 
     if len(parts) == 2:
         # histories/<history_name>
-        return 'datasets', {'history': parts[1]}
+        return 'datasets', {'history': parse_name_with_id(parts[1])[1]}
 
     if len(parts)== 3:
         # Path: histories/<history_name>/<data_name>
         #    OR histories/<history_name>/<collection_name>
-        if parts[2].startswith('dc_'):
+        if parts[2][-3:] == '_dc':
             return 'hdc', {
-                'history': parts[1],
-                'collection': parts[2],
+                'history': parse_name_with_id(parts[1])[1],
+                'collection': parse_name_with_id(parts[2])[1],
             }
         else:
             return 'hda', {
-                'history': parts[1],
-                'dataset': parts[2],
+                'history': parse_name_with_id(parts[1])[1],
+                'dataset': parse_name_with_id(parts[2])[1],
             }
 
     if len(parts) == 4:
         # Path: histories/<history_name>/<coll_name>/<dataset_name>
+        if parts[2][-3:] == '_dc':
+            return 'hdcc', {
+                'history': parse_name_with_id(parts[1])[1],
+                'collection': parse_name_with_id(parts[2])[1],
+                'collection2': parse_name_with_id(parts[3])[1],
+            }
+        else:
+            return 'hdcd', {
+                'history': parse_name_with_id(parts[1])[1],
+                'collection': parse_name_with_id(parts[2])[1],
+                'dataset': parse_name_with_id(parts[3])[1],
+            }
+
+    if len(parts) == 5:
+        # Path: histories/<history_name>/<hdc_name>/<hdc_name>/<dataset_name>
         return 'hdcd', {
-            'history': parts[1],
-            'collection': parts[2],
-            'dataset': parts[3],
+            'history': parse_name_with_id(parts[1])[1],
+            'collection': parse_name_with_id(parts[2])[1],
+            'dataset': parse_name_with_id(parts[3])[1],
         }
 
     return ('unknown', {})
@@ -88,27 +104,26 @@ def path_type(path):
 
 def parse_name_with_id(fname):
     if USE_FILENAME:
-        print(fname)
-        pass
-        m = re.match(r"^(?P<name>.*)-(?P<id>[0-9a-f]{16})", fname)
-        if m is not None:
-            return (m.group('name'), m.group('id'))
-        else:
-            return (fname,'')
+        if fname[-3:] == '_dc':
+            fname = fname[:-3]
+        return fname.split(' ' + SEPARATOR)
     else:
-        if fname.startswith('dc_'):
+        if fname.endswith('_dc'):
             return ('', fname[3:])
         return ('', fname)
 
 
 def fname(obj, attr='id'):
     if USE_FILENAME:
-        print(obj)
-        n = '{name} :{id}'.format(**obj)
+        __import__('pprint').pprint(obj)
+        if 'name' not in obj:
+            obj['name'] = obj['element_identifier']
+        n = '{name} {sep}{id}'.format(sep=SEPARATOR, **obj)
     else:
         n = obj[attr]
-        if 'history_content_type' in obj and obj['history_content_type'] == 'dataset_collection':
-            n = 'dc_' + obj[attr]
+
+    if obj.get('history_content_type', None) == 'dataset_collection' or obj.get('element_type', None) == 'dataset_collection':
+        n += '_dc'
 
     return n
 
@@ -132,7 +147,7 @@ class Context(LoggingMixIn, Operations):
     @cachetools.cached(directory_cache)
     def getattr(self, path, fh=None):
         (object_type, kw) = path_type(path)
-        print('getattr', object_type, path)
+        print('getattr', object_type, path, kw)
 
         if object_type in ('root', 'histories', 'datasets'):
             st = {
@@ -160,8 +175,8 @@ class Context(LoggingMixIn, Operations):
                 'st_mtime': t,
                 'st_atime': t,
             }
-        elif object_type == 'hdc':
-            d = self._dataset_collections(kw['history'], kw['collection'][3:])
+        elif object_type == 'hdc' or object_type == 'hdcc':
+            d = self._dataset_collections(kw['history'], kw['collection'])
 
             d_size = d.get('file_size', 0)
             if 'update_time' in d:
@@ -194,24 +209,6 @@ class Context(LoggingMixIn, Operations):
         else:
             raise FuseOSError(ENOENT)
         return st
-
-    # Return a symlink for the given dataset
-    def readlink(self, path):
-        print('readlink', path)
-        (typ,kw) = path_type(path)
-        if typ=='historydataorcoll':
-            # Dataset inside history.
-            d = self._dataset(kw['history'], kw['dataset'])
-
-            # We have already checked that one of these keys is present
-            return d.get('file_path', d['file_name'])
-        elif typ=='collectiondataset':
-            # Dataset inside collection.
-            d = self._dataset(kw['history'], kw['dataset'], display=False)
-
-            # We have already checked that one of these keys is present
-            return d.get('file_path', d['file_name'])
-        raise FuseOSError(ENOENT)
 
     @cachetools.cached(bytes_cache)
     def read(self, path, size, offset, fh):
@@ -266,8 +263,7 @@ class Context(LoggingMixIn, Operations):
         else:
             ds = self._all_datasets(history['id'])
 
-        (d_name, d_id) = parse_name_with_id(dataset_id)
-        d = list(filter(lambda x: x['id'] == d_id, ds))
+        d = list(filter(lambda x: x['id'] == dataset_id, ds))
 
         if len(d) == 0:
             raise FuseOSError(ENOENT)
@@ -281,7 +277,7 @@ class Context(LoggingMixIn, Operations):
     def readdir(self, path, fh):
         (object_type, kw) = path_type(path)
         found_objects = ['.', '..']
-        print('readdir', path, object_type)
+        print('readdir', path, kw, object_type)
 
         if object_type == 'root':
             found_objects.append('histories')
@@ -300,14 +296,29 @@ class Context(LoggingMixIn, Operations):
 
         elif object_type == 'hdc':
             # This is a dataset collection
-            collection = self._dataset_collections(kw['history'], kw['collection'][3:])
+            collection = self._dataset_collections(kw['history'], kw['collection'])
+            if collection['collection_type'] not in ('paired', 'list', 'list:paired'):
+                print("Unsupported collection type")
+                return found_objects
 
-            if 'elements' not in collection:
-                print(kw, type(collection))
+            if collection['collection_type'] == 'list:paired':
+                for dc in collection['elements']:
+                    found_objects.append(fname(dc))
             else:
-                print(collection)
                 for dataset in collection['elements']:
                     found_objects.append(fname(dataset['object']))
+        elif object_type == 'hdcc':
+            # This is a dataset collection
+            collection = self._dataset_collections(kw['history'], kw['collection'])
+            if collection['collection_type'] not in ('paired', 'list', 'list:paired'):
+                print("Unsupported collection type")
+                return found_objects
+
+            collection = [x for x in collection['elements'] if x['id'] == kw['collection2']][0]
+
+            for dataset in collection['object']['elements']:
+                found_objects.append(fname(dataset['object']))
+
 
         return found_objects
 
