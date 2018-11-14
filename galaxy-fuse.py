@@ -17,7 +17,6 @@ import os
 import argparse
 import requests
 import cachetools
-import datetime
 import logging
 
 from fuse import FUSE, FuseOSError, Operations, LoggingMixIn
@@ -106,7 +105,9 @@ def parse_name_with_id(fname):
     if USE_FILENAME:
         if fname[-3:] == '_dc':
             fname = fname[:-3]
-        return fname.split(' ' + SEPARATOR)
+
+        idx = fname.rindex(SEPARATOR)
+        return fname[:idx], fname[idx + len(SEPARATOR):]
     else:
         if fname.endswith('_dc'):
             return ('', fname[3:])
@@ -115,7 +116,6 @@ def parse_name_with_id(fname):
 
 def fname(obj, attr='id'):
     if USE_FILENAME:
-        __import__('pprint').pprint(obj)
         if 'name' not in obj:
             obj['name'] = obj['element_identifier']
         n = '{name} {sep}{id}'.format(sep=SEPARATOR, **obj)
@@ -144,8 +144,14 @@ class Context(LoggingMixIn, Operations):
     def __init__(self, url, api_key):
         self.gi = galaxy.GalaxyInstance(url=url, key=api_key)
 
-    @cachetools.cached(directory_cache)
     def getattr(self, path, fh=None):
+        try:
+            return self._getattr(path, fh=fh)
+        except Exception as e:
+            print(e)
+
+    @cachetools.cached(directory_cache)
+    def _getattr(self, path, fh=None):
         (object_type, kw) = path_type(path)
         print('getattr', object_type, path, kw)
 
@@ -273,8 +279,14 @@ class Context(LoggingMixIn, Operations):
 
         return d[0]
 
-    # read directory contents
     def readdir(self, path, fh):
+        try:
+            return self._readdir(path, fh)
+        except Exception as e:
+            print(e)
+
+    # read directory contents
+    def _readdir(self, path, fh):
         (object_type, kw) = path_type(path)
         found_objects = ['.', '..']
         print('readdir', path, kw, object_type)
@@ -344,7 +356,10 @@ if __name__ == '__main__':
     parser.add_argument("url")
     parser.add_argument("apikey")
     parser.add_argument("-m", "--mountpoint", help="Directory under which to mount the Galaxy Datasets.")
+    parser.add_argument("--human", action='store_true', help='Human readable names')
     args = parser.parse_args()
+
+    USE_FILENAME = args.human
 
     # Create the directory if it does not exist
     if not os.path.exists(args.mountpoint):

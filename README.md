@@ -20,7 +20,7 @@ make
 Create a volume
 
 ```
-$ docker volume create --driver=galaxy -o apikey=<apikey> -o server=<url> test
+$ docker volume create --driver=galaxy -o apikey=<apikey> -o url=<url> test
 test
 ```
 

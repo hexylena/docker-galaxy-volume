@@ -1,7 +1,6 @@
 #!/usr/bin/env python
 import json
 import os
-import subprocess
 import uuid
 from flask import Flask
 from flask import jsonify
@@ -94,14 +93,17 @@ def volume_remove(volume=None, **kwargs):
 @require_volume
 def volume_mount(volume=None, **kwargs):
     if 'mountpoint' not in volume:
+        print('qq', volume)
         # Create a directory to mount it at.
         m = os.path.join('/tmp', uuid.uuid4().hex)
 
-        # Mount command
-        cmd = 'python gfs.py -m {path} {url} {api} &'
-        cmd = cmd.format(path=m, url=volume['url'], api=volume['apikey'])
-        # Which is run in background
-        subprocess.Popen(cmd, shell=True, stdout=subprocess.PIPE)
+
+        # > The “l” variants are perhaps the easiest to work with if the number of parameters is fixed
+        # > include a second “p” near the end ... will use the PATH environment variable
+        os.makedirs(m)
+        pid = os.spawnlp(os.P_NOWAIT, 'python', 'python', 'galaxy-fuse.py', volume['url'], volume['apikey'], '-m', m)
+        # pid = os.spawnlp(os.P_NOWAIT, 'python', 'python', 'memory.py', m)
+        print(pid)
         # And path is stored
         volume['mountpoint'] = m
 
