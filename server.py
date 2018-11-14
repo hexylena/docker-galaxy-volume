@@ -63,6 +63,7 @@ def volume_create(Name=None, Opts=None):
     VOLUMES[Name] = {
         'name': Name,
         'apikey': Opts['apikey'],
+        'human_readable': Opts.get('human_readable', False),
         'url': Opts['url'],
     }
 
@@ -96,13 +97,17 @@ def volume_mount(volume=None, **kwargs):
         print('qq', volume)
         # Create a directory to mount it at.
         m = os.path.join('/tmp', uuid.uuid4().hex)
+        cmd = ['python', 'galaxy-fuse.py', volume['url'], volume['apikey'], '-m', m]
 
+        if volume.get('human_readable', False):
+            cmd.append('--human')
 
         # > The “l” variants are perhaps the easiest to work with if the number of parameters is fixed
         # > include a second “p” near the end ... will use the PATH environment variable
         os.makedirs(m)
-        pid = os.spawnlp(os.P_NOWAIT, 'python', 'python', 'galaxy-fuse.py', volume['url'], volume['apikey'], '-m', m)
+        pid = os.spawnlp(os.P_NOWAIT, 'python', *cmd)
         # pid = os.spawnlp(os.P_NOWAIT, 'python', 'python', 'memory.py', m)
+        # TODO(hxr): store pid
         print(pid)
         # And path is stored
         volume['mountpoint'] = m

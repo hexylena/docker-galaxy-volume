@@ -102,15 +102,13 @@ def path_type(path):
 
 
 def parse_name_with_id(fname):
-    if USE_FILENAME:
-        if fname[-3:] == '_dc':
-            fname = fname[:-3]
+    if fname[-3:] == '_dc':
+        fname = fname[0:-3]
 
+    if USE_FILENAME:
         idx = fname.rindex(SEPARATOR)
         return fname[:idx], fname[idx + len(SEPARATOR):]
     else:
-        if fname.endswith('_dc'):
-            return ('', fname[3:])
         return ('', fname)
 
 
