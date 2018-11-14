@@ -1,4 +1,4 @@
-# GFS Docker Volume Plugin
+# Galaxy Docker Volume Plugin
 
 ## Installation
 
@@ -6,6 +6,12 @@ Create a 'galaxy' spec file in `/etc/docker/plugins/galaxy.spec` containing:
 
 ```
 tcp://localhost:8123
+```
+
+In this directory, to launch the server process, run:
+
+```
+make
 ```
 
 ## Running
@@ -17,105 +23,48 @@ make
 
 ## Usage
 
-Create a volume
-
 ```
-$ docker volume create --driver=galaxy -o apikey=<apikey> -o url=<url> test
-test
-```
+$ docker run -it --user 1000:1000 --mount type=volume,destination=/galaxy,volume-driver=galaxy,volume-opt=url=http://localhost,volume-opt=apikey=76d1a621e9d80751c1475c176ae6ee12 python:3.6-alpine /bin/sh
+/ $ find /galaxy/
+/galaxy/
+/galaxy/histories
+/galaxy/histories/f597429621d6eb2b
+/galaxy/histories/f597429621d6eb2b/f2db41e1fa331b3e
+/galaxy/histories/f597429621d6eb2b/f597429621d6eb2b
+/galaxy/histories/f597429621d6eb2b/1cd8e2f6b131e891
+/galaxy/histories/f597429621d6eb2b/ebfb8f50c6abde6d
+/galaxy/histories/f597429621d6eb2b/f2db41e1fa331b3e_dc
+/galaxy/histories/f597429621d6eb2b/f2db41e1fa331b3e_dc/33b43b4e7093c91f
+/galaxy/histories/f597429621d6eb2b/f2db41e1fa331b3e_dc/a799d38679e985db
+/galaxy/histories/f597429621d6eb2b/f2db41e1fa331b3e_dc/5969b1f7201f12ae
+/galaxy/histories/f597429621d6eb2b/f2db41e1fa331b3e_dc/df7a1f0c02a5b08e
+/galaxy/histories/f597429621d6eb2b/f597429621d6eb2b_dc
+/galaxy/histories/f597429621d6eb2b/f597429621d6eb2b_dc/33b43b4e7093c91f_dc
+/galaxy/histories/f597429621d6eb2b/f597429621d6eb2b_dc/33b43b4e7093c91f_dc/ebfb8f50c6abde6d
+/galaxy/histories/f597429621d6eb2b/f597429621d6eb2b_dc/33b43b4e7093c91f_dc/1cd8e2f6b131e891
+/galaxy/histories/f597429621d6eb2b/f597429621d6eb2b_dc/df7a1f0c02a5b08e_dc
+/galaxy/histories/f597429621d6eb2b/f597429621d6eb2b_dc/df7a1f0c02a5b08e_dc/f597429621d6eb2b
+/galaxy/histories/f597429621d6eb2b/f597429621d6eb2b_dc/df7a1f0c02a5b08e_dc/f2db41e1fa331b3e
 
-Added a `status` api so you can check what is currently known to the system:
-
-```
-$ curl localhost:8123/status
-{
-  "test": {
-    "apikey": "asdf",
-    "url": "https://usegalaxy.eu",
-    "name": "test"
-  }
-}
-```
-
-
-See that we've created a volume with our others:
-
-```
-$ docker volume ls
-DRIVER              VOLUME NAME
-local               f5fbbe35febaf4f9002860bce281a794e2766b37cc941f5bd8e42260e8290c35
-...
-galaxy              test
-```
-
-And we can inspect it:
-
-
-```
-$ docker volume inspect test
-[
-    {
-        "CreatedAt": "0001-01-01T00:00:00Z",
-        "Driver": "galaxy",
-        "Labels": {},
-        "Mountpoint": "",
-        "Name": "test",
-        "Options": {
-            "apikey": "asdf"
-            "url": "https://usegalaxy.eu"
-        },
-        "Scope": "global"
-    }
-]
-```
-
-So let's run a container with it:
-
-```
-$ docker run -it --user 1000 -v test:/galaxy:ro --entrypoint=/bin/sh python:3.6-alpine
-/ $ ls /
-bin     dev     etc     galaxy  home    lib     media   mnt     proc    root    run     sbin    srv     sys     tmp     usr     var
-/ $ ls /galaxy/
-histories
-/ $ ls /galaxy/histories/
-Unnamed history [aa4561359a9096a0]                                                   imported: Y3line2tissAnalysis-run1 [da3a6d229e422dde]
-imported: 65991-A ASaiM - Shotgun workflow for paired-end data 2 [a8eb2fef93d4f4e1]
-```
-
-Nice!. Exiting the container we can look at it again and see that the mountpoint is now specified:
-
-```
-$ docker volume inspect test
-[
-    {
-        "CreatedAt": "0001-01-01T00:00:00Z",
-        "Driver": "galaxy",
-        "Labels": {},
-        "Mountpoint": "/tmp/93d34877c02042309637d545e89e5ad8",
-        "Name": "test",
-        "Options": {
-            "apikey": "asdf"
-            "url": "https://usegalaxy.eu"
-        },
-        "Scope": "global"
-    }
-]
-```
-
-And we'll cleanup (partially)
-
-```
-$ docker volume rm test
-Error response from daemon: remove test: volume is in use - [355ab86cdec6d4b97eaa39029bdf234987e65323d8bec4c345d659860beaf750]
-$ docker ps -a -q | xargs docker rm;
-355ab86cdec6
-$ docker volume rm test
-test
-```
-
-Partial cleanup because this is just a hack and doesn't clean up the background processes it spawns:
-
-```
-$ ps aux | grep gfs
-hxr      1963742  4.3  0.2  82568 24824 pts/10   S+   14:58   0:00 python gfs.py -m /tmp/273c7d396e454884b4c26185d1b77ec7 https://usegalaxy.eu <apikey>
+$ docker run -it --user 1000:1000 --mount type=volume,destination=/galaxy,volume-driver=galaxy,volume-opt=url=http://localhost,volume-opt=apikey=76d1a621e9d80751c1475c176ae6ee12,volume-opt=human_readable=true python:3.6-alpine /bin/sh
+/ $ find /galaxy/
+/galaxy/
+/galaxy/histories
+/galaxy/histories/Test __f597429621d6eb2b
+/galaxy/histories/Test __f597429621d6eb2b/Pasted Entry __f2db41e1fa331b3e
+/galaxy/histories/Test __f597429621d6eb2b/Pasted Entry __f597429621d6eb2b
+/galaxy/histories/Test __f597429621d6eb2b/Pasted Entry __1cd8e2f6b131e891
+/galaxy/histories/Test __f597429621d6eb2b/Pasted Entry __ebfb8f50c6abde6d
+/galaxy/histories/Test __f597429621d6eb2b/list __f2db41e1fa331b3e_dc
+/galaxy/histories/Test __f597429621d6eb2b/list __f2db41e1fa331b3e_dc/Pasted Entry __33b43b4e7093c91f
+/galaxy/histories/Test __f597429621d6eb2b/list __f2db41e1fa331b3e_dc/Pasted Entry __a799d38679e985db
+/galaxy/histories/Test __f597429621d6eb2b/list __f2db41e1fa331b3e_dc/Pasted Entry __5969b1f7201f12ae
+/galaxy/histories/Test __f597429621d6eb2b/list __f2db41e1fa331b3e_dc/Pasted Entry __df7a1f0c02a5b08e
+/galaxy/histories/Test __f597429621d6eb2b/list:paired __f597429621d6eb2b_dc
+/galaxy/histories/Test __f597429621d6eb2b/list:paired __f597429621d6eb2b_dc/1 __33b43b4e7093c91f_dc
+/galaxy/histories/Test __f597429621d6eb2b/list:paired __f597429621d6eb2b_dc/1 __33b43b4e7093c91f_dc/Pasted Entry __ebfb8f50c6abde6d
+/galaxy/histories/Test __f597429621d6eb2b/list:paired __f597429621d6eb2b_dc/1 __33b43b4e7093c91f_dc/Pasted Entry __1cd8e2f6b131e891
+/galaxy/histories/Test __f597429621d6eb2b/list:paired __f597429621d6eb2b_dc/2 __df7a1f0c02a5b08e_dc
+/galaxy/histories/Test __f597429621d6eb2b/list:paired __f597429621d6eb2b_dc/2 __df7a1f0c02a5b08e_dc/Pasted Entry __f597429621d6eb2b
+/galaxy/histories/Test __f597429621d6eb2b/list:paired __f597429621d6eb2b_dc/2 __df7a1f0c02a5b08e_dc/Pasted Entry __f2db41e1fa331b3e
 ```
