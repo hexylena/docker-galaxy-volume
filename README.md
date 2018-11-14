@@ -1,4 +1,4 @@
-# Galaxy Docker Volume Plugin
+# Galaxy Docker Volume
 
 ## Installation
 
